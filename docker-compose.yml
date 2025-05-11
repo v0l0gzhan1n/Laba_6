@@ -110,7 +110,40 @@ services:
         - /sys:/sys:ro
         - /var/lib/docker/:/var/lib/docker:ro
         #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - rabbitmq
+      - tempo
+    networks:
+      - monitoring
 
+  service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    ports:
+      - "8001:8001"
+    depends_on:
+      - rabbitmq
+      - tempo
+    networks:
+      - monitoring
+  service2:
+    build:
+      context: .
+      dockerfile: Dockerfile.service2
+    ports:
+      - "8002:8002"
+    depends_on:
+      - rabbitmq
+      - tempo
+    networks:
+      - monitoring
 
 networks:
   monitoring:

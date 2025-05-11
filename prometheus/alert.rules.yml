@@ -45,3 +45,15 @@ groups:
           description: |
             Очередь {{ $labels.name }} содержит более 1 непрочитанных сообщений.
             Текущее значение: {{ $value }}
+            
+  - name: service2_alerts
+    rules:
+      - alert: HighProcessingRateService2
+        expr: message_processing_rate_service2 > 5
+        for: 1m
+        labels:
+          service: fastapi
+          severity: warning
+        annotations:
+          summary: "Высокая скорость обработки сообщений в Service 2"
+          description: "Скорость обработки сообщений в Service 2 превысила 5 сообщений/с: {{ $value }}"

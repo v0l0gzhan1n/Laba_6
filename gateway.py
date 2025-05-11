@@ -101,7 +101,40 @@ async def send_message(request: MessageRequest):
     except Exception as e:
         logger.error(f"Failed to publish message: {e}")
         raise HTTPException(status_code=500, detail="Failed to send message")
+@app.post("/send_to_service2/")
+async def send_message_to_service2(request: MessageRequest):
+    message = request.message
+    correlation_id = str(uuid.uuid4())
+    span = trace.get_current_span()
+    trace_id = format_trace_id(span.get_span_context().trace_id)
+    logger.info(f"[TRACE_ID] {trace_id}")
+    payload = {
+        "trace_id": trace_id,
+        "message": message
+    }
+    future = asyncio.get_event_loop().create_future()
+    app.state.futures[correlation_id] = future
+    logger.info(f"Received message for Service 2: {message}")
+    try:
+        with tracer.start_as_current_span("gateway_send_message_service2") as send_span:
+            send_span.set_attribute("custom.trace_id", trace_id)
+            await app.state.exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(payload).encode(),
+                    reply_to=app.state.callback_queue.name,
+                    correlation_id=correlation_id
+                ),
+                routing_key="service2_queue"
+            )
+        with tracer.start_as_current_span("gateway_wait_response_service2"):
+            response = await future
+        decoded_response = json.loads(response)
+        logger.info(f"[Gateway][Trace ID: {trace_id}] Response from Service 2: {decoded_response}")
+        return decoded_response
 
+    except Exception as e:
+        logger.error(f"Failed to publish message to Service 2: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send message to Service 2")
 # Функция для подключения к RabbitMQ с повторными попытками
 @retry(wait=wait_fixed(2), stop=stop_after_attempt(5))
 async def connect_to_rabbitmq():
